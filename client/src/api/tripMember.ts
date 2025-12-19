@@ -29,6 +29,13 @@ export const deleteMember = async (tripId: string, handleUserId: string): Promis
     });
 };
 
+// 更新成员角色
+export const updateMemberRole = async (tripId: string, handleUserId: string, newRole: 'OWNER' | 'EDITOR' | 'VIEWER'): Promise<void> => {
+    await api.put<unknown, void>('/tripMembers/updateRole', null, {
+        params: { tripId, handleUserId, newRole }
+    });
+};
+
 // 获取待处理的成员请求数量 (按旅程分组)
 export const getPendingRequests = async (): Promise<TripPendingRequest[]> => {
     return await api.get<unknown, TripPendingRequest[]>('/tripMembers/pending');

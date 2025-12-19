@@ -82,7 +82,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getTripDetail, semanticSearchPois } from '@/api/explore';
 import { getUserByUsername } from '@/api/user';
 import { updateTripInfo, updateTripVisibility, updateTripStatus, deleteTrip, aiGenerateTrip } from '@/api/trip';
-import { getTripMembers, handleMemberRequest, inviteUsers, deleteMember } from '@/api/tripMember';
+import { getTripMembers, handleMemberRequest, inviteUsers, deleteMember, updateMemberRole } from '@/api/tripMember';
 import { getWishlistItems, deleteWishlistItems, addWishlistItem, EntireWishlistItem } from '@/api/wishlist';
 import { getAllConversations, getRecommendationPois, getRecommendationNonPois } from '@/api/aiRecommendation';
 import { searchPoisFromDb, searchPoisFromApi } from '@/api/poi';
@@ -626,6 +626,8 @@ const TripDetailPage: React.FC = () => {
     const [searching, setSearching] = useState(false);
     const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<TripMember | null>(null);
+    const [roleMenuAnchor, setRoleMenuAnchor] = useState<null | HTMLElement>(null);
+    const [roleMenuMember, setRoleMenuMember] = useState<TripMember | null>(null);
     const isOwner = memberRole === 'OWNER';
 
     // Wishlist state
@@ -3051,7 +3053,7 @@ const TripDetailPage: React.FC = () => {
                     <AccordionDetails>
                         {/* Pending Requests (OWNER only) */}
                         {isOwner && pendingMembers.length > 0 && (
-                            <Box sx={{ mb: 3 }}>
+                            <Box sx={{ mb: 1 }}>
                                 <Typography variant="subtitle2" fontWeight="bold" color="warning.main" sx={{ mb: 1 }}>
                                     待审批请求 ({pendingMembers.length})
                                 </Typography>
@@ -3082,7 +3084,7 @@ const TripDetailPage: React.FC = () => {
                         )}
 
                         {/* Approved Members */}
-                        <Box sx={{ mt: -1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {members.map(member => (
                                 <Box key={member.id} sx={{ display: 'flex', alignItems: 'center', p: 1.5, bgcolor: '#f5f5f5', borderRadius: 2 }}>
                                     <Box sx={{ flex: 1 }}>
@@ -3091,7 +3093,20 @@ const TripDetailPage: React.FC = () => {
                                             <Typography variant="caption" color="text.secondary">
                                                 加入于 {new Date(member.createdAt).toLocaleDateString('zh-CN')}
                                             </Typography>
-                                            <Chip size="small" label={getRoleLabel(member.role)} color={getRoleColor(member.role)} />
+                                            {isOwner && member.role !== 'OWNER' ? (
+                                                <Chip
+                                                    size="small"
+                                                    label={getRoleLabel(member.role)}
+                                                    color={getRoleColor(member.role)}
+                                                    onClick={(e) => {
+                                                        setRoleMenuAnchor(e.currentTarget);
+                                                        setRoleMenuMember(member);
+                                                    }}
+                                                    sx={{ cursor: 'pointer' }}
+                                                />
+                                            ) : (
+                                                <Chip size="small" label={getRoleLabel(member.role)} color={getRoleColor(member.role)} />
+                                            )}
                                             {member.userId === currentUserId && (
                                                 <Chip size="small" label="你" variant="outlined" color="primary" />
                                             )}
@@ -3117,6 +3132,52 @@ const TripDetailPage: React.FC = () => {
                         </Box>
                     </AccordionDetails>
                 </Accordion>
+
+                {/* Role Change Menu */}
+                <Menu
+                    anchorEl={roleMenuAnchor}
+                    open={Boolean(roleMenuAnchor)}
+                    onClose={() => { setRoleMenuAnchor(null); setRoleMenuMember(null); }}
+                >
+                    <MenuItem
+                        onClick={async () => {
+                            if (tripId && roleMenuMember) {
+                                try {
+                                    await updateMemberRole(tripId, roleMenuMember.userId, 'EDITOR');
+                                    toast.success('已更新为可编辑');
+                                    fetchMembers();
+                                } catch (err) {
+                                    console.error('Failed to update role:', err);
+                                }
+                            }
+                            setRoleMenuAnchor(null);
+                            setRoleMenuMember(null);
+                        }}
+                        selected={roleMenuMember?.role === 'EDITOR'}
+                    >
+                        <ListItemIcon><Edit fontSize="small" /></ListItemIcon>
+                        可编辑
+                    </MenuItem>
+                    <MenuItem
+                        onClick={async () => {
+                            if (tripId && roleMenuMember) {
+                                try {
+                                    await updateMemberRole(tripId, roleMenuMember.userId, 'VIEWER');
+                                    toast.success('已更新为仅查看');
+                                    fetchMembers();
+                                } catch (err) {
+                                    console.error('Failed to update role:', err);
+                                }
+                            }
+                            setRoleMenuAnchor(null);
+                            setRoleMenuMember(null);
+                        }}
+                        selected={roleMenuMember?.role === 'VIEWER'}
+                    >
+                        <ListItemIcon><LockOpen fontSize="small" /></ListItemIcon>
+                        仅查看
+                    </MenuItem>
+                </Menu>
 
                 {/* Navigation Buttons for Logs and Expenses */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
